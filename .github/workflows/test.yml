@@ -8,5 +8,5 @@ jobs:
           for u in https://arbuz.kz https://magnum.kz; do
             curl -s -A "Mozilla/5.0" -L --max-time 20 "$u" -o page.html
             echo "== $u"
-            grep -o 'href="[^"]*catalog[^"]*"' page.html | sort -u | head -15
+            grep -o 'href="/[^"]*"' page.html | sort -u | head -40
           done
