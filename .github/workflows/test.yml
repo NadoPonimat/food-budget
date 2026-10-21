@@ -5,8 +5,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          for u in https://arbuz.kz https://arbuz.kz/ru/almaty/collections/252385-vygodnaya_polka; do
-            curl -s -A "Mozilla/5.0" -L --max-time 30 "$u" | sed 's#\\/#/#g' > p.html
-            echo "== $u"
-            grep -o '/ru/almaty/catalog/[^"?& ]*' p.html | grep -v '/item/' | sort -u | head -40
-          done
+          python3 - <<'PY'
+          import re, html, urllib.request
+          def get(u):
+              req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
+              t = html.unescape(urllib.request.urlopen(req, timeout=30).read().decode())
+              t = t.replace('\\/', '/')
+              out = []
+              for m in re.finditer(r'"uri":"(/ru/almaty/catalog/item/[^"]+)"', t):
+                  seg = t[m.end():m.end()+900]
+                  pre = t[max(0, m.start()-900):m.start()]
+                  p = re.search(r'"priceActual":(\d+)', seg)
+                  w = re.search(r'"weight":"([^"]*)"', seg)
+                  n = re.findall(r'"name":"([^"]*)"', pre)
+                  if p:
+                      out.append((n[-1] if n else m.group(1), w.group(1) if w else '', int(p.group(1))))
+              return out
+          base = "https://arbuz.kz/ru/almaty/catalog/cat/224398-krupy_bobovye"
+          for pg in (1, 2, 3):
+              r = get(base + "?page=" + str(pg))
+              print("page", pg, "items:", len(r), "first:", r[0] if r else None)
+          PY
