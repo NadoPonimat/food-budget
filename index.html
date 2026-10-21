@@ -5,29 +5,51 @@
 <style>
 body{font-family:sans-serif;max-width:600px;margin:0 auto;padding:12px;background:#f4f4f4;color:#222}
 label{display:block;margin:8px 0;font-size:14px}
-input{width:100%;box-sizing:border-box;padding:10px;font-size:16px;margin-top:3px}
+input,select{width:100%;box-sizing:border-box;padding:10px;font-size:16px;margin-top:3px}
 button{width:100%;padding:12px;font-size:17px;background:#2e7d32;color:#fff;border:0;border-radius:8px;margin:8px 0}
+button.g{background:#777;font-size:15px;padding:8px}
 .c{background:#fff;border-radius:8px;padding:10px;margin:8px 0}
 .t{font-weight:bold;margin-bottom:4px}
 .s{color:#666;font-size:13px}
+.r{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.w{color:#b71c1c}
 a{color:#1565c0}
 </style></head><body>
 <h2>Бюджет на еду</h2>
 <label>Бюджет на месяц, ₸<input id="b" type="number" value="50000"></label>
 <label>Месяц<input id="m" type="month"></label>
+<div class="t">Семья</div>
+<div id="fam"></div>
+<button class="g" onclick="addP()">+ Добавить человека</button>
+<label><input id="nc" type="checkbox" style="width:auto;margin-right:8px">Не могу готовить</label>
 <label>Пачек сигарет в день<input id="pk" type="number" step="0.1" value="0"></label>
 <label>Цена пачки, ₸<input id="pp" type="number" value="0"></label>
 <button onclick="go()">Составить рацион</button>
 <div id="out"></div>
 <script>
-const C={"Мясо":[.25,250,200],"Крупы":[.15,200,350],"Макароны":[.10,150,350],"Молочка":[.15,500,60],"Хлеб":[.10,300,250],"Сыр":[.05,60,350],"Консервы":[.10,150,120],"Сахар и соль":[.05,60,200],"Колбасы":[.05,80,300]};
-let D=null;
+const COOK={"Мясо":[.25,250,200],"Крупы":[.15,200,350],"Макароны":[.10,150,350],"Молочка":[.15,500,60],"Хлеб":[.10,300,250],"Сыр":[.05,60,350],"Консервы":[.10,150,120],"Сахар и соль":[.05,60,200],"Колбасы":[.05,80,300]};
+const NOC={"Хлеб":[.25,300,250],"Колбасы":[.20,100,300],"Сыр":[.15,60,350],"Молочка":[.15,500,60],"Консервы":[.15,150,120],"Завтраки":[.10,100,370]};
 const $=i=>document.getElementById(i);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let F=[{s:'м',a:30,w:75,h:175}],D=null;
 $('m').value=new Date().toISOString().slice(0,7);
+try{const S=JSON.parse(localStorage.getItem('fb')||'null');if(S){if(S.F&&S.F.length)F=S.F;$('b').value=S.b||50000;$('pk').value=S.pk||0;$('pp').value=S.pp||0;$('nc').checked=!!S.nc}}catch(e){}
+function drawFam(){
+$('fam').innerHTML=F.map((p,i)=>'<div class="c"><div class="t">Человек '+(i+1)+(F.length>1?' · <a href="#" onclick="rm('+i+');return false">удалить</a>':'')+'</div><div class="r">'
++'<label>Пол<select onchange="F['+i+'].s=this.value"><option value="м"'+(p.s=='м'?' selected':'')+'>муж</option><option value="ж"'+(p.s=='ж'?' selected':'')+'>жен</option></select></label>'
++'<label>Возраст<input type="number" value="'+p.a+'" onchange="F['+i+'].a=+this.value"></label>'
++'<label>Вес, кг<input type="number" value="'+p.w+'" onchange="F['+i+'].w=+this.value"></label>'
++'<label>Рост, см<input type="number" value="'+p.h+'" onchange="F['+i+'].h=+this.value"></label></div></div>').join('');
+}
+function addP(){F.push({s:'м',a:30,w:75,h:175});drawFam()}
+function rm(i){F.splice(i,1);drawFam()}
+drawFam();
 fetch('prices.json').then(r=>r.json()).then(j=>D=j);
+function need1(p){return(10*p.w+6.25*p.h-5*p.a+(p.s=='м'?5:-161))*1.4}
 function gr(n){const a=[...n.matchAll(/(\d+(?:[.,]\d+)?)\s*(кг|г|мл|л)(?![а-яa-z])/gi)];if(!a.length)return 0;const m=a[a.length-1];const v=parseFloat(m[1].replace(',','.'));const u=m[2].toLowerCase();return(u=='кг'||u=='л')?v*1000:v}
 function go(){
 if(!D){$('out').textContent='Цены ещё грузятся, нажми ещё раз';return}
+localStorage.setItem('fb',JSON.stringify({F:F,b:$('b').value,pk:$('pk').value,pp:$('pp').value,nc:$('nc').checked}));
 const [y,mo]=$('m').value.split('-').map(Number);
 const days=new Date(y,mo,0).getDate();
 const mn=new Date(y,mo-1,1).toLocaleString('ru',{month:'long'});
@@ -35,27 +57,30 @@ const smoke=Math.round(+$('pk').value*+$('pp').value*days);
 const food=+$('b').value-smoke;
 if(food<=0){$('out').textContent='Сигареты съедают весь бюджет';return}
 const daily=food/days;
-let h='<div class="c"><div class="t">'+mn+': '+days+' дн.</div>Сигареты: '+smoke+' ₸<br>На еду: '+Math.round(food)+' ₸<br><b>В день: '+Math.round(daily)+' ₸</b></div>';
+const need=F.reduce((a,p)=>a+need1(p),0);
+const sc=need/2000;
+const C=$('nc').checked?NOC:COOK;
+let h='<div class="c"><div class="t">'+mn+': '+days+' дн.</div>Сигареты: '+smoke+' ₸<br>На еду: '+Math.round(food)+' ₸<br><b>В день: '+Math.round(daily)+' ₸</b> на '+F.length+' чел.<br>Нужно примерно '+Math.round(need)+' ккал в день</div>';
 let spent=0,kcal=0;
 for(const c in C){
-const [sh,mx,kc]=C[c];
+const sh=C[c][0],mx=C[c][1]*sc,kk=C[c][2];
 const seen=new Set();
 const L=D.items.filter(x=>x.cat==c).map(x=>({...x,g:gr(x.name)})).filter(x=>x.g>=100&&!seen.has(x.name)&&seen.add(x.name)).map(x=>({...x,pk:x.price/x.g*1000})).sort((a,b)=>a.pk-b.pk).slice(0,2);
 if(!L.length)continue;
 const half=food*sh/L.length;
-let dg=L.map(x=>half/x.pk*1000/days);
+const dg=L.map(x=>half/x.pk*1000/days);
 const tot=dg.reduce((a,b)=>a+b,0);
 const f=tot>mx?mx/tot:1;
 h+='<div class="c"><div class="t">'+c+'</div>';
 L.forEach((x,i)=>{
 const d=dg[i]*f,mg=d*days,n=Math.ceil(mg/x.g),cost=n*x.price;
-spent+=cost;kcal+=d/100*kc;
-h+='<div>'+x.name+'<div class="s">'+x.price+' ₸ · Arbuz · в день '+Math.round(d)+' г · в месяц '+n+' шт = '+cost+' ₸ · <a href="'+x.url+'" target="_blank">открыть</a></div></div><hr>';
+spent+=cost;kcal+=d/100*kk;
+h+='<div>'+esc(x.name)+'<div class="s">'+x.price+' ₸ · Arbuz · в день '+Math.round(d)+' г · в месяц '+n+' шт = '+cost+' ₸ · <a href="'+esc(x.url)+'" target="_blank">открыть</a></div></div><hr>';
 });
 h+='</div>';
 }
-const left=Math.round(food-spent);
-h+='<div class="c"><div class="t">Итого</div>Продукты: '+Math.round(spent)+' ₸<br>Около '+Math.round(kcal)+' ккал в день (грубая оценка)<br>Осталось: '+left+' ₸ — на овощи, фрукты, яйца, рыбу (их пока нет в базе цен)</div>';
+const pc=Math.round(kcal/need*100);
+h+='<div class="c"><div class="t">Итого</div>Продукты: '+Math.round(spent)+' ₸<br>Рацион даёт около '+Math.round(kcal)+' ккал в день, это '+pc+'% от нужного (грубая оценка)<br>'+(pc<85?'<span class="w">Бюджета не хватает на полноценное питание.</span><br>':'')+'Осталось: '+Math.round(food-spent)+' ₸ — на овощи, фрукты, яйца, рыбу (их пока нет в базе цен)</div>';
 h+='<div class="s">Цены обновлены: '+D.updated+'</div>';
 $('out').innerHTML=h;
 }
