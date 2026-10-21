@@ -5,8 +5,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          for u in https://arbuz.kz https://magnum.kz; do
-            curl -s -A "Mozilla/5.0" -L --max-time 20 "$u" -o page.html
-            echo "== $u"
-            grep -o 'href="/[^"]*"' page.html | sort -u | head -40
-          done
+          curl -s -A "Mozilla/5.0" -L --max-time 30 "https://arbuz.kz/ru/almaty/collections/252385-vygodnaya_polka" -o p.html
+          sed -i 's/&quot;/"/g' p.html
+          echo "size: $(wc -c < p.html)"
+          echo "price_actual: $(grep -o '"price_actual":[0-9]*' p.html | wc -l)"
+          grep -o '"price_actual":[0-9]*' p.html | sort -u | head -8
+          grep -o '.\{250\}"price_actual":[1-9].\{120\}' p.html | head -1
