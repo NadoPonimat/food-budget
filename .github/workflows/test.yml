@@ -8,7 +8,9 @@ jobs:
           for u in https://arbuz.kz https://magnum.kz; do
             curl -s -A "Mozilla/5.0" -L --max-time 20 "$u" -o page.html
             echo "== $u"
-            echo "size: $(wc -c < page.html)"
-            echo "tenge: $(grep -o '₸' page.html | wc -l)"
-            echo "next_data: $(grep -c '__NEXT_DATA__' page.html)"
+            echo "price: $(grep -o -i 'price' page.html | wc -l)"
+            echo "ldjson: $(grep -c 'ld+json' page.html)"
+            echo "window: $(grep -o 'window\.__[A-Za-z_]*' page.html | sort -u | head -5 | tr '\n' ' ')"
+            echo "api: $(grep -o 'https\?://[^"]*api[^"]*' page.html | sort -u | head -5 | tr '\n' ' ')"
+            echo "sample: $(grep -o -i '.\{60\}price.\{60\}' page.html | head -2)"
           done
