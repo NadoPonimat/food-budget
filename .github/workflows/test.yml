@@ -6,7 +6,6 @@ jobs:
     steps:
       - run: |
           curl -s -A "Mozilla/5.0" -L --max-time 30 "https://arbuz.kz/ru/almaty/collections/252385-vygodnaya_polka" -o p.html
-          echo "api paths:"
-          grep -o '/api/[A-Za-z0-9_/.-]*' p.html | sort -u | head -15
-          echo "price samples:"
-          grep -o -i '.\{80\}price.\{80\}' p.html | head -3
+          sed -i 's/&quot;/"/g' p.html
+          echo "products: $(grep -o '"priceActual":' p.html | wc -l)"
+          grep -o '.\{450\}"priceActual":[0-9]*.\{100\}' p.html | head -1 | tr ',' '\n'
