@@ -5,22 +5,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          python3 - <<'PY'
-          import re, html, urllib.request
-          u = "https://arbuz.kz/ru/almaty/collections/252385-vygodnaya_polka"
-          req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
-          t = html.unescape(urllib.request.urlopen(req, timeout=30).read().decode())
-          t = t.replace('\\/', '/')
-          out = []
-          for m in re.finditer(r'"uri":"(/ru/almaty/catalog/item/[^"]+)"', t):
-              seg = t[m.end():m.end()+900]
-              pre = t[max(0, m.start()-900):m.start()]
-              p = re.search(r'"priceActual":(\d+)', seg)
-              w = re.search(r'"weight":"([^"]*)"', seg)
-              n = re.findall(r'"name":"([^"]*)"', pre)
-              if p:
-                  out.append((n[-1] if n else m.group(1).split('/')[-1], w.group(1) if w else '', int(p.group(1))))
-          print("found:", len(out))
-          for o in out[:12]:
-              print(o)
-          PY
+          for u in https://arbuz.kz https://arbuz.kz/ru/almaty/collections/252385-vygodnaya_polka; do
+            curl -s -A "Mozilla/5.0" -L --max-time 30 "$u" | sed 's#\\/#/#g' > p.html
+            echo "== $u"
+            grep -o '/ru/almaty/catalog/[^"?& ]*' p.html | grep -v '/item/' | sort -u | head -40
+          done
