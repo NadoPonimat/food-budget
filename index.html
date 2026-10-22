@@ -20,7 +20,7 @@ summary{font-weight:bold;font-size:16px;padding:6px 0}
 <script>
 window.onerror=function(m,s,l){document.getElementById('err').textContent='Ошибка: '+m+' (строка '+l+')';};
 </script>
-<h2>Бюджет на еду <span class="s">v31</span></h2>
+<h2>Бюджет на еду <span class="s">v40</span></h2>
 <details class="c"><summary>🔍 Поиск по товарам</summary>
 <input id="q" type="search" placeholder="Например: гречка, молоко 1 л" oninput="srch()">
 <div id="sr"></div></details>
@@ -40,7 +40,7 @@ const NOC={"Хлеб":[.16,250,250],"Колбасы":[.10,100,300],"Сыр":[.10
 const BAD=/тофу|корм|детск|набор|подароч|питомц|шоколад|конфет|киндер|перепел|бургер|наггет|панир|икр|сурими|палочк/i;
 const $=i=>document.getElementById(i);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let F=[{s:'м',a:30,w:75,h:175}],D=null;
+let F=[{s:'м',a:30,w:75,h:175}],D=null,M=null;
 $('m').value=new Date().toISOString().slice(0,7);
 try{const S=JSON.parse(localStorage.getItem('fb')||'null');if(S){if(S.F&&S.F.length)F=S.F;$('b').value=S.b||50000;$('pk').value=S.pk||0;$('pp').value=S.pp||0;$('nc').checked=!!S.nc}}catch(e){}
 function drawFam(){
@@ -54,14 +54,22 @@ function addP(){F.push({s:'м',a:30,w:75,h:175});drawFam()}
 function rm(i){F.splice(i,1);drawFam()}
 drawFam();
 fetch('prices.json').then(r=>r.json()).then(j=>D=j).catch(e=>{$('err').textContent='Не загрузились цены: '+e.message});
+fetch('magnum.json').then(r=>r.json()).then(j=>M=j).catch(e=>{});
 function need1(p){return(10*p.w+6.25*p.h-5*p.a+(p.s=='м'?5:-161))*1.4}
 function gr(n){
 if(/яйц/i.test(n)){const e=n.match(/(\d+)\s*шт/i);return e?e[1]*55:0}
-const a=[...n.matchAll(/(\d+(?:[.,]\d+)?)\s*(кг|г|мл|л)(?![а-яa-z])/gi)];if(!a.length)return 0;const m=a[a.length-1];const v=parseFloat(m[1].replace(',','.'));const u=m[2].toLowerCase();return(u=='кг'||u=='л')?v*1000:v}
+const a=[...n.matchAll(/(\d+(?:[.,]\d+)?)\s*(кг|г|мл|л)(?![а-яa-z])/gi)];
+if(!a.length)return /(^|\s)кг\.?$/i.test(n.trim())?1000:0;
+const m=a[a.length-1];const v=parseFloat(m[1].replace(',','.'));const u=m[2].toLowerCase();return(u=='кг'||u=='л')?v*1000:v}
 function items(c){
 if(c=='Яйца')return D.items.filter(x=>x.cat=='Яйца и масло'&&/яйц/i.test(x.name));
 if(c=='Сахар')return D.items.filter(x=>x.cat=='Сахар и соль'&&/сахар/i.test(x.name)&&!/соль/i.test(x.name));
 return D.items.filter(x=>x.cat==c);
+}
+function cap(s){s=s.toLowerCase().trim();return s.charAt(0).toUpperCase()+s.slice(1)}
+function allItems(){
+const B=(M?M.items:[]).map(x=>({name:cap(x.name),price:x.price,old:x.old,until:x.until,store:'Magnum',cat:'Акция Magnum',url:''}));
+return D.items.concat(B);
 }
 function srch(){
 const q=$('q').value.trim().toLowerCase();
@@ -69,12 +77,18 @@ const o=$('sr');
 if(q.length<2){o.innerHTML='';return}
 if(!D){o.textContent='Цены ещё грузятся';return}
 const ws=q.split(/\s+/);
-const L=D.items.filter(x=>{const n=x.name.toLowerCase();return ws.every(w=>n.includes(w))}).map(x=>{const g=gr(x.name);const ok=g>=50&&g<=10000&&!/\d\/\d/.test(x.name);return{...x,pk:ok?x.price/g*1000:0}});
+const L=allItems().filter(x=>{const n=x.name.toLowerCase();return ws.every(w=>n.includes(w))}).map(x=>{const g=gr(x.name);const ok=g>=50&&g<=10000&&!/\d\/\d/.test(x.name);return{...x,pk:ok?x.price/g*1000:0}});
 if(!L.length){o.textContent='Ничего не найдено';return}
 L.sort((a,b)=>(a.pk||1e9)-(b.pk||1e9)||a.price-b.price);
-let h='<div class="s">Найдено: '+L.length+(L.length>30?', показаны 30 самых дешёвых':'')+'</div>';
+const na=L.filter(x=>x.store=='Magnum').length;
+let h='<div class="s">Найдено: '+L.length+' (Arbuz '+(L.length-na)+', Magnum '+na+')'+(L.length>30?', показаны 30 самых дешёвых':'')+'</div>';
 L.slice(0,30).forEach((x,i)=>{
-h+='<div class="c"><div>'+esc(x.name.replace(/^Дисконт:\s*/,''))+'</div><div class="s">'+(i==0&&x.pk?'<b style="color:#2e7d32">самый дешёвый</b> · ':'')+x.price+' ₸'+(x.pk?' ('+Math.round(x.pk)+' ₸/кг)':'')+' · '+esc(x.store||'Arbuz')+' · '+esc(x.cat)+' · <a href="'+esc(x.url)+'" target="_blank">открыть</a></div></div>';
+const top=(i==0&&x.pk);
+h+='<div class="c"'+(top?' style="border:2px solid #2e7d32"':'')+'><div>'+esc(x.name.replace(/^Дисконт:\s*/,''))+'</div><div class="s">'
++(top?'<b style="color:#2e7d32">самый дешёвый</b> · ':'')
++'<b>'+x.price+' ₸</b>'+(x.old?' <s>'+x.old+'</s>':'')+(x.pk?' ('+Math.round(x.pk)+' ₸/кг)':'')
++' · <b>'+esc(x.store||'Arbuz')+'</b>'+(x.until?' · акция до '+esc(x.until):' · '+esc(x.cat))
++(x.url?' · <a href="'+esc(x.url)+'" target="_blank">открыть</a>':'')+'</div></div>';
 });
 o.innerHTML=h;
 }
