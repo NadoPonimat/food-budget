@@ -6,25 +6,22 @@ jobs:
     steps:
       - run: |
           python3 - <<'PY'
-          import json, urllib.request, urllib.parse
-          def t(p):
-              u = "https://magnum.kz:1337" + urllib.parse.quote(p, safe="/?&=[]$:")
-              r = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
-              try:
-                  x = urllib.request.urlopen(r, timeout=60)
-                  return x.headers.get("Content-Type"), x.read()
-              except Exception as e:
-                  return "ERR " + str(e), b""
-          ct, b = t("/api/new-product")
-          print("new-product:", ct, len(b))
-          try:
-              d = json.loads(b)
-              print("type:", type(d).__name__, "count:", len(d))
-              print("unique names:", len(set(i.get("name") for i in d)))
-              print("keys:", list(d[0].keys())[:25])
-          except Exception as e:
-              print("parse ERR", e)
-          for p in ("/api/download-catalog?city=almaty", "/api/download-catalog?city=2", "/api/showcase-bulk"):
-              ct, b = t(p)
-              print(p, "|", ct, "|", len(b), "|", b[:200])
+          import json, urllib.request
+          r = urllib.request.Request("https://magnum.kz:1337/api/download-catalog?city=2", headers={"User-Agent": "Mozilla/5.0"})
+          d = json.loads(urllib.request.urlopen(r, timeout=90).read().decode())["data"]
+          print("top keys:", list(d.keys()))
+          for k, v in d.items():
+              if isinstance(v, list):
+                  print(k, "len:", len(v), "| keys of first:", list(v[0].keys())[:20] if v and isinstance(v[0], dict) else v[:3])
+          cat = d["category"]
+          names = set(x["name"] for x in cat)
+          print("category unique names:", len(names))
+          same = [x for x in cat if x["start_price"] == x["final_price"] or not x["discount"]]
+          print("without discount:", len(same))
+          for x in cat[:5]:
+              print({k: x[k] for k in x if k in ("name", "start_price", "final_price", "discount", "action_start", "action_end", "category", "catalog")})
+          import re
+          for w in ("ГРЕЧК", "МОЛОКО", "КАРТОФ", "МАКАРОН", "КУРИЦ", "ХЛЕБ"):
+              m = [x["name"] for x in cat if w in x["name"].upper()]
+              print(w, len(m), m[:2])
           PY
