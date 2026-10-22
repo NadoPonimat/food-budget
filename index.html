@@ -23,7 +23,7 @@ ul,ol{margin:4px 0;padding-left:20px}
 <script>
 window.onerror=function(m,s,l){document.getElementById('err').textContent='Ошибка: '+m+' (строка '+l+')';};
 </script>
-<h2>Бюджет на еду <span class="s">v45</span></h2>
+<h2>Бюджет на еду <span class="s">v46</span></h2>
 <details class="c"><summary>🔍 Поиск по товарам</summary>
 <input id="q" type="search" placeholder="Например: гречка, молоко 1 л" oninput="srch()">
 <div id="sr"></div></details>
@@ -33,6 +33,21 @@ window.onerror=function(m,s,l){document.getElementById('err').textContent='Ош�
 <input id="st" type="search" placeholder="Улица, например: Абая" oninput="drawSt()">
 <div class="s" id="stn"></div>
 <div id="stl"></div></details>
+<details class="c"><summary>🤖 ИИ-меню</summary>
+<div class="s">ИИ составит меню по твоим продуктам, бюджету и семье. Рацион пересчитается сам при нажатии кнопок ниже.</div>
+<label>Пожелания (необязательно)<input id="wish" placeholder="например: без свинины, есть микроволновка"></label>
+<button onclick="copyPrompt()">📋 Скопировать запрос для ИИ</button>
+<div class="s">Вставь его в чат с Claude, ключ не нужен.</div>
+<div id="cp"></div>
+<hr>
+<label>Ключ API Anthropic (хранится только на этом устройстве)<input id="ak" type="password" placeholder="sk-ant-..." autocomplete="off"></label>
+<button class="g" onclick="saveKey()">Сохранить ключ</button>
+<button class="g" onclick="delKey()">Удалить ключ</button>
+<div class="s" id="ks"></div>
+<label>Модель<select id="mdl"><option value="claude-sonnet-5-5">Sonnet 5.5 (качественнее)</option><option value="claude-haiku-5-5">Haiku 5.5 (дешевле)</option></select></label>
+<button onclick="askAI()">🤖 Спросить ИИ</button>
+<div class="s">Запрос уходит только на api.anthropic.com. Поставь лимит трат на ключе в консоли Anthropic.</div>
+<div id="ai"></div></details>
 <label>Бюджет на месяц, ₸<input id="b" type="number" value="50000"></label>
 <label>Месяц<input id="m" type="month"></label>
 <div class="t">Семья</div>
@@ -197,6 +212,53 @@ h+='<div class="c"'+(top?' style="border:2px solid #2e7d32"':'')+'><div>'+esc(x.
 });
 o.innerHTML=h;
 }
+
+let LAST=null;
+function updKey(){let k='';try{k=localStorage.getItem('fbk')||''}catch(e){}$('ks').textContent=k?'✅ Ключ сохранён на этом устройстве':'Ключ не сохранён'}
+function saveKey(){const v=$('ak').value.trim();if(!v){$('ks').textContent='Вставь ключ в поле выше';return}try{localStorage.setItem('fbk',v)}catch(e){}$('ak').value='';updKey()}
+function delKey(){try{localStorage.removeItem('fbk')}catch(e){}updKey()}
+function buildPrompt(){
+LAST=null;go();
+if(!LAST)return null;
+const L=LAST,nc=$('nc').checked,wish=$('wish').value.trim();
+const ppl=F.map((p,i)=>(i+1)+') '+(p.s=='м'?'мужчина':'женщина')+', '+p.a+' лет, '+p.w+' кг, '+p.h+' см').join('; ');
+const seen=new Set(),pl=[],cl=[];
+L.P.forEach(p=>{const k=p.x.nm;if(!seen.has(k)){seen.add(k);pl.push('- '+k+' — '+p.x.price+' ₸ (Arbuz)')}});
+CART.forEach(c=>{if(!seen.has(c.name)){seen.add(c.name);cl.push('- '+c.name+' — '+c.price+' ₸ ('+c.store+')')}});
+return 'Ты помогаешь составить недорогое и разнообразное питание. Страна: Казахстан, город Алматы.\n'
++'Период: '+L.mn+', '+L.days+' дн.\n'
++'Семья ('+F.length+' чел.): '+ppl+'.\n'
++'Бюджет на еду на весь период: '+Math.round(L.food)+' ₸ (около '+Math.round(L.food/L.days)+' ₸ в день на всех).\n'
++'Ориентировочная потребность: около '+Math.round(L.need)+' ккал в день на всех.\n'
++(nc?'Готовить нельзя: только еда без приготовления (хлеб, сыр, колбаса, молочка, консервы, готовая еда, фрукты, овощи).\n':'Готовить можно на обычной кухне.\n')
++(wish?'Пожелания: '+wish+'.\n':'')
++'\nПродукты, подобранные приложением по самой низкой цене за килограмм (цены за упаковку):\n'+pl.join('\n')
++(cl.length?'\n\nПродукты, которые я сам положил в корзину (обязательно используй):\n'+cl.join('\n'):'')
++'\n\nЗадача:\n1) Составь меню по дням: завтрак, обед, ужин и перекус.\n2) Используй в первую очередь продукты из списка. Соль, специи, воду и немного базовых добавок можно добавлять.\n3) Посчитай, сколько упаковок каждого продукта нужно купить на период, и итоговую стоимость. Не превышай бюджет.\n4) Если продуктов из списка не хватает для разнообразия или калорий, назови, что ещё дешёвого стоит докупить, и примерную цену.\n5) Дай короткие рецепты для основных блюд.\n6) Это не медицинская рекомендация.\nПиши по-русски простым текстом, без markdown: без звёздочек, решёток и таблиц, списки через дефис.';
+}
+async function copyPrompt(){
+const o=$('cp');
+const p=buildPrompt();
+if(!p){o.textContent='Цены ещё грузятся или рацион не получился. Нажми ещё раз.';return}
+try{await navigator.clipboard.writeText(p);o.innerHTML='<div class="s">✅ Запрос скопирован. Вставь его в чат с Claude.</div>'}
+catch(e){o.innerHTML='<div class="s">Не удалось скопировать автоматически. Выдели текст ниже и скопируй вручную:</div><textarea readonly style="width:100%;height:160px">'+esc(p)+'</textarea>'}
+}
+async function askAI(){
+const out=$('ai');
+let key='';try{key=localStorage.getItem('fbk')||''}catch(e){}
+if(!key){out.textContent='Сначала сохрани ключ API.';return}
+const pr=buildPrompt();
+if(!pr){out.textContent='Цены ещё грузятся или рацион не получился. Нажми ещё раз.';return}
+out.textContent='ИИ думает… (может занять до минуты)';
+try{
+const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:$('mdl').value,max_tokens:4000,messages:[{role:'user',content:pr}]})});
+const j=await r.json();
+if(!r.ok){out.textContent='Ошибка ИИ: '+((j.error&&j.error.message)||r.status);return}
+const t=(j.content||[]).filter(b=>b.type=='text').map(b=>b.text).join('\n');
+out.innerHTML='<div style="white-space:pre-wrap;font-size:14px;margin-top:8px">'+esc(t)+'</div>';
+}catch(e){out.textContent='Не удалось связаться с ИИ: '+e.message}
+}
+updKey();
 function go(){try{go2()}catch(e){$('out').textContent='Ошибка: '+e.message}}
 function go2(){
 if(!D){$('out').textContent='Цены ещё грузятся, нажми ещё раз';return}
@@ -234,6 +296,7 @@ let mi=0;P.forEach((p,i)=>{if(p.x.price>P[mi].x.price)mi=i});
 spent-=P[mi].n*P[mi].x.price;P.splice(mi,1);
 }
 const av=dishIdx(P,$('nc').checked);
+LAST={food:food,days:days,need:need,P:P,mn:mn,smoke:smoke};
 let h='<div class="c"><div class="t">'+mn+': '+days+' дн.</div>Сигареты: '+smoke+' ₸<br>На еду: '+Math.round(food)+' ₸<br><b>В день: '+Math.round(daily)+' ₸</b> на '+F.length+' чел.<br>Нужно примерно '+Math.round(need)+' ккал в день</div>';
 let kcal=0,cur='';
 P.forEach(p=>{
