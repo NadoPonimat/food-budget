@@ -5,9 +5,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          curl -s -A "Mozilla/5.0" -L --max-time 30 "https://magnum.kz" | sed 's#\\u002F#/#g; s#\\/#/#g' > m.html
-          echo "size: $(wc -c < m.html)"
-          echo "--- paths with catalog/categor:"
-          grep -o '"[^" ]*\(catalog\|categor\)[^" ]*"' m.html | sort -u | head -25
-          echo "--- NUXT start:"
-          grep -o 'window.__NUXT__=.\{300\}' m.html | head -1
+          python3 - <<'PY'
+          import re, urllib.request
+          def g(u):
+              r = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
+              return urllib.request.urlopen(r, timeout=30).read().decode("utf-8", "ignore")
+          t = g("https://magnum.kz")
+          js = sorted(set(re.findall(r'/_nuxt/[A-Za-z0-9_./-]+\.js', t)))
+          print("js files:", len(js))
+          found = set()
+          for j in js:
+              try:
+                  s = g("https://magnum.kz" + j)
+              except Exception as e:
+                  continue
+              for m in re.findall(r'["\'](/?(?:api|v\d)[A-Za-z0-9_/.-]*|https?://[A-Za-z0-9.-]*magnum[A-Za-z0-9./_-]*)["\']', s):
+                  found.add(m)
+              for m in re.findall(r'(?:baseURL|apiUrl|API_URL|BASE_URL)["\']?\s*[:=]\s*["\'][^"\']+["\']', s):
+                  found.add(m)
+          for f in sorted(found)[:60]:
+              print(f)
+          PY
