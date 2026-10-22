@@ -5,22 +5,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          python3 - <<'PY'
-          import re, html, urllib.request
-          u = "https://arbuz.kz/ru/almaty/catalog/cat/225178-ovoshi"
-          req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
-          t = html.unescape(urllib.request.urlopen(req, timeout=30).read().decode()).replace("\\/", "/")
-          k = 0
-          for m in re.finditer(r'"uri":"(/ru/almaty/catalog/item/[^"]+)"', t):
-              seg = t[m.end():m.end() + 900]
-              pre = t[max(0, m.start() - 900):m.start()]
-              n = re.findall(r'"name":"([^"]*)"', pre)
-              f = []
-              for key in ("measure", "isWeighted", "weightAvg", "weight", "priceActual"):
-                  r = re.search('"' + key + '":("?[^,"]*"?)', seg)
-                  f.append(key + "=" + (r.group(1) if r else "-"))
-              print(n[-1] if n else "?", " | ", " ".join(f))
-              k += 1
-              if k >= 12:
-                  break
-          PY
+          curl -s -A "Mozilla/5.0" -L --max-time 30 "https://magnum.kz" | sed 's#\\u002F#/#g; s#\\/#/#g' > m.html
+          echo "size: $(wc -c < m.html)"
+          echo "--- paths with catalog/categor:"
+          grep -o '"[^" ]*\(catalog\|categor\)[^" ]*"' m.html | sort -u | head -25
+          echo "--- NUXT start:"
+          grep -o 'window.__NUXT__=.\{300\}' m.html | head -1
