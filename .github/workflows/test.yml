@@ -4,5 +4,27 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - run: python3 scrape_magnum.py
+      - run: |
+          python3 - <<'PY'
+          import json, urllib.request, urllib.parse
+          def t(p):
+              u = "https://magnum.kz:1337" + urllib.parse.quote(p, safe="/?&=[]$:")
+              r = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
+              try:
+                  x = urllib.request.urlopen(r, timeout=60)
+                  return x.headers.get("Content-Type"), x.read()
+              except Exception as e:
+                  return "ERR " + str(e), b""
+          ct, b = t("/api/new-product")
+          print("new-product:", ct, len(b))
+          try:
+              d = json.loads(b)
+              print("type:", type(d).__name__, "count:", len(d))
+              print("unique names:", len(set(i.get("name") for i in d)))
+              print("keys:", list(d[0].keys())[:25])
+          except Exception as e:
+              print("parse ERR", e)
+          for p in ("/api/download-catalog?city=almaty", "/api/download-catalog?city=2", "/api/showcase-bulk"):
+              ct, b = t(p)
+              print(p, "|", ct, "|", len(b), "|", b[:200])
+          PY
