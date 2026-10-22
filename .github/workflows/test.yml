@@ -4,23 +4,5 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          python3 - <<'PY'
-          import json, urllib.request, urllib.error, urllib.parse
-          def t(p, n=700):
-              u = "https://magnum.kz:1337" + urllib.parse.quote(p, safe="/?&=[]$:")
-              r = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
-              try:
-                  s = urllib.request.urlopen(r, timeout=30).read().decode()
-                  print("OK", p, len(s))
-                  print(s[:n].replace("\n", " "))
-              except urllib.error.HTTPError as e:
-                  print("ERR", p, e.code, e.read().decode()[:200])
-              except Exception as e:
-                  print("ERR", p, e)
-              print("-----")
-          t("/api/new-product?pagination[pageSize]=2", 900)
-          t("/api/shops?pagination[pageSize]=2", 600)
-          t("/api/products?filters[shops][address][$containsi]=АЛМАТЫ&pagination[pageSize]=1", 300)
-          t("/api/new-product-catalog", 1200)
-          PY
+      - uses: actions/checkout@v4
+      - run: python3 scrape_magnum.py
