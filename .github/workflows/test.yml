@@ -12,17 +12,19 @@ jobs:
               return urllib.request.urlopen(r, timeout=30).read().decode("utf-8", "ignore")
           t = g("https://magnum.kz")
           js = sorted(set(re.findall(r'/_nuxt/[A-Za-z0-9_./-]+\.js', t)))
-          print("js files:", len(js))
-          found = set()
+          paths = set()
           for j in js:
+              s = g("https://magnum.kz" + j)
+              for m in re.findall(r'\.(?:get|post)\(\s*[`"\']([^`"\']{3,80})[`"\']', s):
+                  paths.add(m)
+          print("paths in js:")
+          for p in sorted(paths)[:50]:
+              print(" ", p)
+          print("direct tests:")
+          for p in ("/products", "/categories", "/api/products", "/catalog", "/catalogs", "/items"):
               try:
-                  s = g("https://magnum.kz" + j)
+                  body = g("https://magnum.kz:1337" + p)
+                  print(p, "OK", len(body), body[:200].replace("\n", " "))
               except Exception as e:
-                  continue
-              for m in re.findall(r'["\'](/?(?:api|v\d)[A-Za-z0-9_/.-]*|https?://[A-Za-z0-9.-]*magnum[A-Za-z0-9./_-]*)["\']', s):
-                  found.add(m)
-              for m in re.findall(r'(?:baseURL|apiUrl|API_URL|BASE_URL)["\']?\s*[:=]\s*["\'][^"\']+["\']', s):
-                  found.add(m)
-          for f in sorted(found)[:60]:
-              print(f)
+                  print(p, "ERR", e)
           PY
