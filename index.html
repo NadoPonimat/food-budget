@@ -31,9 +31,9 @@ summary{font-weight:bold;font-size:16px;padding:6px 0}
 <button onclick="go()">Составить рацион</button>
 <div id="out"></div>
 <script>
-const COOK={"Мясо":[.15,200,200],"Птица":[.15,200,170],"Рыба":[.05,100,150],"Яйца":[.08,110,150],"Крупы":[.12,150,350],"Макароны":[.08,100,350],"Овощи":[.10,400,30],"Фрукты":[.04,200,50],"Молочка":[.08,400,60],"Хлеб":[.06,250,250],"Масло растительное":[.03,30,900],"Сахар и соль":[.02,30,380],"Консервы":[.02,100,120],"Сыр":[.02,40,350]};
-const NOC={"Хлеб":[.16,250,250],"Колбасы":[.10,100,300],"Сыр":[.10,60,350],"Молочка":[.12,500,60],"Консервы":[.10,150,120],"Завтраки":[.08,100,370],"Готовая еда":[.18,400,200],"Фрукты":[.06,250,50],"Орехи":[.04,50,600],"Овощи":[.06,300,30]};
-const BAD=/тофу|корм|детск|набор|подароч|питомц|шоколад|конфет|киндер|перепел/i;
+const COOK={"Мясо":[.15,200,200],"Птица":[.15,200,170],"Рыба":[.05,100,150],"Яйца":[.08,110,150],"Крупы":[.12,150,350],"Макароны":[.08,100,350],"Овощи":[.10,500,35],"Фрукты":[.04,200,50],"Молочка":[.08,400,60],"Хлеб":[.06,250,250],"Масло растительное":[.03,30,900],"Сахар":[.02,40,400],"Консервы":[.02,100,120],"Сыр":[.02,40,350]};
+const NOC={"Хлеб":[.16,250,250],"Колбасы":[.10,100,300],"Сыр":[.10,60,350],"Молочка":[.12,500,60],"Консервы":[.10,150,120],"Завтраки":[.08,100,370],"Готовая еда":[.18,400,200],"Фрукты":[.06,250,50],"Орехи":[.04,50,600],"Овощи":[.06,300,35]};
+const BAD=/тофу|корм|детск|набор|подароч|питомц|шоколад|конфет|киндер|перепел|бургер|наггет|панир|икр|сурими|палочк/i;
 const $=i=>document.getElementById(i);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let F=[{s:'м',a:30,w:75,h:175}],D=null;
@@ -44,81 +44,4 @@ $('fam').innerHTML=F.map((p,i)=>'<div class="c"><div class="t">Человек '+
 +'<label>Пол<select onchange="F['+i+'].s=this.value"><option value="м"'+(p.s=='м'?' selected':'')+'>муж</option><option value="ж"'+(p.s=='ж'?' selected':'')+'>жен</option></select></label>'
 +'<label>Возраст<input type="number" value="'+p.a+'" onchange="F['+i+'].a=+this.value"></label>'
 +'<label>Вес, кг<input type="number" value="'+p.w+'" onchange="F['+i+'].w=+this.value"></label>'
-+'<label>Рост, см<input type="number" value="'+p.h+'" onchange="F['+i+'].h=+this.value"></label></div></div>').join('');
-}
-function addP(){F.push({s:'м',a:30,w:75,h:175});drawFam()}
-function rm(i){F.splice(i,1);drawFam()}
-drawFam();
-fetch('prices.json').then(r=>r.json()).then(j=>D=j);
-function need1(p){return(10*p.w+6.25*p.h-5*p.a+(p.s=='м'?5:-161))*1.4}
-function gr(n){
-if(/яйц/i.test(n)){const e=n.match(/(\d+)\s*шт/i);return e?e[1]*55:0}
-const a=[...n.matchAll(/(\d+(?:[.,]\d+)?)\s*(кг|г|мл|л)(?![а-яa-z])/gi)];if(!a.length)return 0;const m=a[a.length-1];const v=parseFloat(m[1].replace(',','.'));const u=m[2].toLowerCase();return(u=='кг'||u=='л')?v*1000:v}
-function items(c){
-if(c=='Яйца')return D.items.filter(x=>x.cat=='Яйца и масло'&&/яйц/i.test(x.name));
-return D.items.filter(x=>x.cat==c);
-}
-function srch(){
-const q=$('q').value.trim().toLowerCase();
-const o=$('sr');
-if(q.length<2){o.innerHTML='';return}
-if(!D){o.textContent='Цены ещё грузятся';return}
-const ws=q.split(/\s+/);
-const L=D.items.filter(x=>{const n=x.name.toLowerCase();return ws.every(w=>n.includes(w))}).map(x=>{const g=gr(x.name);const ok=g>=50&&g<=10000&&!/\d\/\d/.test(x.name);return{...x,pk:ok?x.price/g*1000:0}});
-if(!L.length){o.textContent='Ничего не найдено';return}
-L.sort((a,b)=>(a.pk||1e9)-(b.pk||1e9)||a.price-b.price);
-let h='<div class="s">Найдено: '+L.length+(L.length>30?', показаны 30 самых дешёвых':'')+'</div>';
-L.slice(0,30).forEach((x,i)=>{
-h+='<div class="c"><div>'+esc(x.name.replace(/^Дисконт:\s*/,''))+'</div><div class="s">'+(i==0&&x.pk?'<b style="color:#2e7d32">самый дешёвый</b> · ':'')+x.price+' ₸'+(x.pk?' ('+Math.round(x.pk)+' ₸/кг)':'')+' · '+esc(x.store||'Arbuz')+' · '+esc(x.cat)+' · <a href="'+esc(x.url)+'" target="_blank">открыть</a></div></div>';
-});
-o.innerHTML=h;
-}
-function go(){
-if(!D){$('out').textContent='Цены ещё грузятся, нажми ещё раз';return}
-localStorage.setItem('fb',JSON.stringify({F:F,b:$('b').value,pk:$('pk').value,pp:$('pp').value,nc:$('nc').checked}));
-const [y,mo]=$('m').value.split('-').map(Number);
-const days=new Date(y,mo,0).getDate();
-const mn=new Date(y,mo-1,1).toLocaleString('ru',{month:'long'});
-const smoke=Math.round(+$('pk').value*+$('pp').value*days);
-const food=+$('b').value-smoke;
-if(food<=0){$('out').textContent='Сигареты съедают весь бюджет';return}
-const daily=food/days;
-const need=F.reduce((a,p)=>a+need1(p),0);
-const sc=need/2000;
-const C=$('nc').checked?NOC:COOK;
-const P=[];
-for(const c in C){
-const sh=C[c][0],mx=C[c][1]*sc,kk=C[c][2];
-const lim=food*sh;
-const seen=new Set();
-const L=items(c).filter(x=>!BAD.test(x.name)&&!/\d\/\d/.test(x.name)).map(x=>({...x,nm:x.name.replace(/^Дисконт:\s*/,''),g:gr(x.name)})).filter(x=>x.g>=100&&x.g<=10000&&x.price<=lim*0.6&&!seen.has(x.nm)&&seen.add(x.nm)).map(x=>({...x,pk:x.price/x.g*1000})).sort((a,b)=>a.pk-b.pk).slice(0,2);
-if(!L.length)continue;
-const half=lim/L.length;
-const dg=L.map(x=>half/x.pk*1000/days);
-const tot=dg.reduce((a,b)=>a+b,0);
-const f=tot>mx?mx/tot:1;
-L.forEach((x,i)=>{P.push({c:c,x:x,n:Math.max(1,Math.round(dg[i]*f*days/x.g)),kk:kk})});
-}
-let spent=P.reduce((a,p)=>a+p.n*p.x.price,0);
-while(spent>food&&P.length){
-let best=null;
-P.forEach(p=>{if(p.n>1&&(!best||p.n*p.x.price>best.n*best.x.price))best=p});
-if(best){best.n--;spent-=best.x.price;continue}
-let mi=0;P.forEach((p,i)=>{if(p.x.price>P[mi].x.price)mi=i});
-spent-=P[mi].n*P[mi].x.price;P.splice(mi,1);
-}
-let h='<div class="c"><div class="t">'+mn+': '+days+' дн.</div>Сигареты: '+smoke+' ₸<br>На еду: '+Math.round(food)+' ₸<br><b>В день: '+Math.round(daily)+' ₸</b> на '+F.length+' чел.<br>Нужно примерно '+Math.round(need)+' ккал в день</div>';
-let kcal=0,cur='';
-P.forEach(p=>{
-if(p.c!=cur){if(cur)h+='</div>';h+='<div class="c"><div class="t">'+p.c+'</div>';cur=p.c}
-const d=p.n*p.x.g/days,cost=p.n*p.x.price;
-kcal+=d/100*p.kk;
-h+='<div>'+esc(p.x.nm)+'<div class="s">'+p.x.price+' ₸ ('+Math.round(p.x.pk)+' ₸/кг) · Arbuz · в день '+Math.round(d)+' г · в месяц '+p.n+' шт = '+cost+' ₸ · <a href="'+esc(p.x.url)+'" target="_blank">открыть</a></div></div><hr>';
-});
-if(cur)h+='</div>';
-const pc=Math.round(kcal/need*100);
-h+='<div class="c"><div class="t">Итого</div>Продукты: '+Math.round(spent)+' ₸<br>Рацион даёт около '+Math.round(kcal)+' ккал в день, это '+pc+'% от нужного (грубая оценка)<br>'+(pc<85?'<span class="w">Бюджета не хватает на полноценное питание.</span><br>':'')+'Осталось: '+Math.round(food-spent)+' ₸</div>';
-h+='<div class="s">Цены обновлены: '+D.updated+'</div>';
-$('out').innerHTML=h;
-}
-</script></body></html>
++'<label>Рост, см<input type="number" value="'+p.h+'" onchange="F['+i+'].h=+this.value"></label></div>
