@@ -36,7 +36,11 @@ def get(u):
         p = re.search(r'"priceActual":(\d+)', seg)
         n = re.findall(r'"name":"([^"]*)"', pre)
         if p and n:
-            out.append({"name": n[-1], "price": int(p.group(1)),
+            name = n[-1]
+            weighted = re.search(r'"measure":"кг"', seg) and re.search(r'"isWeighted":true', seg)
+            if weighted and re.search(r'кг\.?$', name):
+                name = re.sub(r',?\s*кг\.?$', '', name).strip() + ", 1 кг"
+            out.append({"name": name, "price": int(p.group(1)),
                         "url": "https://arbuz.kz" + m.group(1)})
     return out
 
