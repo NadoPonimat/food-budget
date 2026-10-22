@@ -14,7 +14,7 @@ CATS = {
     "Завтраки": "224533-suhie_zavtraki",
     "Здоровое питание": "224645-zdorovoe_pitanie",
     "Полуфабрикаты": "224663-polufabrikaty_i_gotovye_blyuda",
-}    "Овощи": "225178-ovoshi",
+    "Овощи": "225178-ovoshi",
     "Фрукты": "225177-frukty",
     "Птица": "225173-kurica_indeika_i_ptica",
     "Рыба": "225175-ryba",
@@ -22,6 +22,7 @@ CATS = {
     "Масло растительное": "225448-maslo_rastitelnoe",
     "Орехи": "225304-orehi_i_suhofrukty",
     "Готовая еда": "225253-gotovaya_eda",
+}
 
 def get(u):
     req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
@@ -51,13 +52,3 @@ for cat, slug in CATS.items():
         if not new:
             break
         for x in new:
-            seen.add(x["url"])
-            x["cat"] = cat
-            x["store"] = "Arbuz"
-            items.append(x)
-        time.sleep(1)
-    print(cat, len(seen))
-
-data = {"updated": datetime.date.today().isoformat(), "items": items}
-json.dump(data, open("prices.json", "w", encoding="utf-8"), ensure_ascii=False)
-print("total", len(items))
