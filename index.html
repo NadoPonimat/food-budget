@@ -27,8 +27,9 @@ a{color:#1565c0}
 <button onclick="go()">Составить рацион</button>
 <div id="out"></div>
 <script>
-const COOK={"Мясо":[.25,250,200],"Крупы":[.15,200,350],"Макароны":[.10,150,350],"Молочка":[.15,500,60],"Хлеб":[.10,300,250],"Сыр":[.05,60,350],"Консервы":[.10,150,120],"Сахар и соль":[.05,60,200],"Колбасы":[.05,80,300]};
-const NOC={"Хлеб":[.25,300,250],"Колбасы":[.20,100,300],"Сыр":[.15,60,350],"Молочка":[.15,500,60],"Консервы":[.15,150,120],"Завтраки":[.10,100,370]};
+const COOK={"Мясо":[.15,200,200],"Птица":[.15,200,170],"Рыба":[.05,100,150],"Яйца":[.08,110,150],"Крупы":[.12,150,350],"Макароны":[.08,100,350],"Овощи":[.10,400,30],"Фрукты":[.04,200,50],"Молочка":[.08,400,60],"Хлеб":[.06,250,250],"Масло растительное":[.03,30,900],"Сахар и соль":[.02,30,380],"Консервы":[.02,100,120],"Сыр":[.02,40,350]};
+const NOC={"Хлеб":[.16,250,250],"Колбасы":[.10,100,300],"Сыр":[.10,60,350],"Молочка":[.12,500,60],"Консервы":[.10,150,120],"Завтраки":[.08,100,370],"Готовая еда":[.18,400,200],"Фрукты":[.06,250,50],"Орехи":[.04,50,600],"Овощи":[.06,300,30]};
+const BAD=/тофу|корм|детск|набор|подароч|питомц|шоколад|конфет|киндер/i;
 const $=i=>document.getElementById(i);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let F=[{s:'м',a:30,w:75,h:175}],D=null;
@@ -46,7 +47,13 @@ function rm(i){F.splice(i,1);drawFam()}
 drawFam();
 fetch('prices.json').then(r=>r.json()).then(j=>D=j);
 function need1(p){return(10*p.w+6.25*p.h-5*p.a+(p.s=='м'?5:-161))*1.4}
-function gr(n){const a=[...n.matchAll(/(\d+(?:[.,]\d+)?)\s*(кг|г|мл|л)(?![а-яa-z])/gi)];if(!a.length)return 0;const m=a[a.length-1];const v=parseFloat(m[1].replace(',','.'));const u=m[2].toLowerCase();return(u=='кг'||u=='л')?v*1000:v}
+function gr(n){
+if(/яйц/i.test(n)){const e=n.match(/(\d+)\s*шт/i);return e?e[1]*55:0}
+const a=[...n.matchAll(/(\d+(?:[.,]\d+)?)\s*(кг|г|мл|л)(?![а-яa-z])/gi)];if(!a.length)return 0;const m=a[a.length-1];const v=parseFloat(m[1].replace(',','.'));const u=m[2].toLowerCase();return(u=='кг'||u=='л')?v*1000:v}
+function items(c){
+if(c=='Яйца')return D.items.filter(x=>x.cat=='Яйца и масло'&&/яйц/i.test(x.name));
+return D.items.filter(x=>x.cat==c);
+}
 function go(){
 if(!D){$('out').textContent='Цены ещё грузятся, нажми ещё раз';return}
 localStorage.setItem('fb',JSON.stringify({F:F,b:$('b').value,pk:$('pk').value,pp:$('pp').value,nc:$('nc').checked}));
@@ -65,7 +72,7 @@ let spent=0,kcal=0;
 for(const c in C){
 const sh=C[c][0],mx=C[c][1]*sc,kk=C[c][2];
 const seen=new Set();
-const L=D.items.filter(x=>x.cat==c).map(x=>({...x,g:gr(x.name)})).filter(x=>x.g>=100&&!seen.has(x.name)&&seen.add(x.name)).map(x=>({...x,pk:x.price/x.g*1000})).sort((a,b)=>a.pk-b.pk).slice(0,2);
+const L=items(c).filter(x=>!BAD.test(x.name)).map(x=>({...x,nm:x.name.replace(/^Дисконт:\s*/,''),g:gr(x.name)})).filter(x=>x.g>=100&&!seen.has(x.nm)&&seen.add(x.nm)).map(x=>({...x,pk:x.price/x.g*1000})).sort((a,b)=>a.pk-b.pk).slice(0,2);
 if(!L.length)continue;
 const half=food*sh/L.length;
 const dg=L.map(x=>half/x.pk*1000/days);
@@ -75,12 +82,12 @@ h+='<div class="c"><div class="t">'+c+'</div>';
 L.forEach((x,i)=>{
 const d=dg[i]*f,mg=d*days,n=Math.ceil(mg/x.g),cost=n*x.price;
 spent+=cost;kcal+=d/100*kk;
-h+='<div>'+esc(x.name)+'<div class="s">'+x.price+' ₸ · Arbuz · в день '+Math.round(d)+' г · в месяц '+n+' шт = '+cost+' ₸ · <a href="'+esc(x.url)+'" target="_blank">открыть</a></div></div><hr>';
+h+='<div>'+esc(x.nm)+'<div class="s">'+x.price+' ₸ · Arbuz · в день '+Math.round(d)+' г · в месяц '+n+' шт = '+cost+' ₸ · <a href="'+esc(x.url)+'" target="_blank">открыть</a></div></div><hr>';
 });
 h+='</div>';
 }
 const pc=Math.round(kcal/need*100);
-h+='<div class="c"><div class="t">Итого</div>Продукты: '+Math.round(spent)+' ₸<br>Рацион даёт около '+Math.round(kcal)+' ккал в день, это '+pc+'% от нужного (грубая оценка)<br>'+(pc<85?'<span class="w">Бюджета не хватает на полноценное питание.</span><br>':'')+'Осталось: '+Math.round(food-spent)+' ₸ — на овощи, фрукты, яйца, рыбу (их пока нет в базе цен)</div>';
+h+='<div class="c"><div class="t">Итого</div>Продукты: '+Math.round(spent)+' ₸<br>Рацион даёт около '+Math.round(kcal)+' ккал в день, это '+pc+'% от нужного (грубая оценка)<br>'+(pc<85?'<span class="w">Бюджета не хватает на полноценное питание.</span><br>':'')+'Осталось: '+Math.round(food-spent)+' ₸</div>';
 h+='<div class="s">Цены обновлены: '+D.updated+'</div>';
 $('out').innerHTML=h;
 }
