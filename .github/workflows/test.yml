@@ -6,25 +6,21 @@ jobs:
     steps:
       - run: |
           python3 - <<'PY'
-          import re, urllib.request
-          def g(u):
-              r = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
-              return urllib.request.urlopen(r, timeout=30).read().decode("utf-8", "ignore")
-          t = g("https://magnum.kz")
-          js = sorted(set(re.findall(r'/_nuxt/[A-Za-z0-9_./-]+\.js', t)))
-          paths = set()
-          for j in js:
-              s = g("https://magnum.kz" + j)
-              for m in re.findall(r'\.(?:get|post)\(\s*[`"\']([^`"\']{3,80})[`"\']', s):
-                  paths.add(m)
-          print("paths in js:")
-          for p in sorted(paths)[:50]:
-              print(" ", p)
-          print("direct tests:")
-          for p in ("/products", "/categories", "/api/products", "/catalog", "/catalogs", "/items"):
+          import json, urllib.request
+          def g(p):
+              r = urllib.request.Request("https://magnum.kz:1337" + p, headers={"User-Agent": "Mozilla/5.0"})
+              return json.loads(urllib.request.urlopen(r, timeout=30).read().decode())
+          d = g("/api/products?pagination[pageSize]=100&pagination[page]=1")
+          print("meta:", d.get("meta"))
+          print("count on page:", len(d["data"]))
+          print("first item:", json.dumps(d["data"][0]["attributes"], ensure_ascii=False)[:900])
+          for x in d["data"][:10]:
+              a = x["attributes"]
+              print(a.get("name"), "|", a.get("final_price"), "|", a.get("action_end"))
+          for p in ("/api/cities", "/api/new-product-catalog"):
               try:
-                  body = g("https://magnum.kz:1337" + p)
-                  print(p, "OK", len(body), body[:200].replace("\n", " "))
+                  s = json.dumps(g(p), ensure_ascii=False)
+                  print(p, len(s), s[:300])
               except Exception as e:
                   print(p, "ERR", e)
           PY
