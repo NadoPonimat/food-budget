@@ -22,12 +22,16 @@ summary{font-weight:bold;font-size:16px;padding:6px 0}
 <script>
 window.onerror=function(m,s,l){document.getElementById('err').textContent='Ошибка: '+m+' (строка '+l+')';};
 </script>
-<h2>Бюджет на еду <span class="s">v41</span></h2>
+<h2>Бюджет на еду <span class="s">v44</span></h2>
 <details class="c"><summary>🔍 Поиск по товарам</summary>
 <input id="q" type="search" placeholder="Например: гречка, молоко 1 л" oninput="srch()">
 <div id="sr"></div></details>
 <details class="c"><summary id="cs">🛒 Корзины</summary>
 <div id="cart"></div></details>
+<details class="c"><summary>📍 Магазины Magnum (Алматы)</summary>
+<input id="st" type="search" placeholder="Улица, например: Абая" oninput="drawSt()">
+<div class="s" id="stn"></div>
+<div id="stl"></div></details>
 <label>Бюджет на месяц, ₸<input id="b" type="number" value="50000"></label>
 <label>Месяц<input id="m" type="month"></label>
 <div class="t">Семья</div>
@@ -59,7 +63,7 @@ function addP(){F.push({s:'м',a:30,w:75,h:175});drawFam()}
 function rm(i){F.splice(i,1);drawFam()}
 drawFam();
 fetch('prices.json').then(r=>r.json()).then(j=>D=j).catch(e=>{$('err').textContent='Не загрузились цены: '+e.message});
-fetch('magnum.json').then(r=>r.json()).then(j=>M=j).catch(e=>{});
+fetch('magnum.json').then(r=>r.json()).then(j=>{M=j;drawCart()}).catch(e=>{});
 function need1(p){return(10*p.w+6.25*p.h-5*p.a+(p.s=='м'?5:-161))*1.4}
 function gr(n){
 if(/яйц/i.test(n)){const e=n.match(/(\d+)\s*шт/i);return e?e[1]*55:0}
@@ -73,7 +77,7 @@ return D.items.filter(x=>x.cat==c);
 }
 function cap(s){s=s.toLowerCase().trim();return s.charAt(0).toUpperCase()+s.slice(1)}
 function allItems(){
-const B=(M?M.items:[]).map(x=>({name:cap(x.name),price:x.price,old:x.old,until:x.until,store:'Magnum',cat:'Акция Magnum',url:''}));
+const B=(M?M.items:[]).map(x=>({name:cap(x.name),price:x.price,old:x.old,until:x.until,store:'Magnum',cat:'Акция Magnum',url:'',shops:x.shops||[]}));
 return D.items.concat(B);
 }
 function saveC(){try{localStorage.setItem('fbc',JSON.stringify(CART))}catch(e){}}
@@ -82,7 +86,7 @@ const x=LR[i];if(!x)return;
 const nm=x.name.replace(/^Дисконт:\s*/,'');
 const st=x.store||'Arbuz';
 const f=CART.find(c=>c.store==st&&c.name==nm);
-if(f)f.q++;else CART.push({name:nm,price:x.price,store:st,url:x.url||'',q:1});
+if(f){f.q++;if(x.shops&&!f.shops)f.shops=x.shops}else CART.push({name:nm,price:x.price,store:st,url:x.url||'',q:1,shops:x.shops||null});
 saveC();drawCart();
 if(btn)btn.textContent='✓ добавлено ('+(f?f.q:1)+')';
 }
@@ -92,7 +96,8 @@ function drawCart(){
 const n=CART.reduce((a,c)=>a+c.q,0);
 $('cs').textContent='🛒 Корзины'+(n?' ('+n+' шт)':'');
 const o=$('cart');
-if(!CART.length){o.innerHTML='<div class="s">Пусто. Найди товар в поиске и нажми «+ в корзину».</div>';return}
+if(!CART.length){o.innerHTML='<div class="s">Пусто. Найди товар в поиске и нажми «+ в корзину».</div>'}
+else{
 const st=[...new Set(CART.map(c=>c.store))];
 let all=0,h='';
 st.forEach(s=>{
@@ -108,6 +113,30 @@ all+=sum;
 });
 h+='<div class="c"><div class="t">Всего по всем корзинам: '+all+' ₸</div><button class="g" onclick="clr()">Очистить корзины</button></div>';
 o.innerHTML=h;
+}
+drawSt();
+}
+function shopList(){
+if(!M||!M.shops)return {L:[],note:'Магазины ещё грузятся'};
+const mi=CART.filter(c=>c.store=='Magnum'&&c.shops&&c.shops.length);
+if(!mi.length)return {L:M.shops,note:'Все магазины Magnum в Алматы: '+M.shops.length};
+let ids=mi[0].shops.slice();
+mi.forEach(c=>{ids=ids.filter(id=>c.shops.includes(id))});
+const L=M.shops.filter(s=>ids.includes(s.id));
+return {L:L,note:L.length?'Магазины, где есть всё из корзины Magnum: '+L.length:'Нет магазина, где есть все товары корзины Magnum. Попробуй убрать часть товаров.'};
+}
+function drawSt(){
+const r=shopList();
+const q=$('st').value.trim().toLowerCase();
+const R=r.L.filter(s=>!q||(s.address+' '+s.name).toLowerCase().includes(q));
+$('stn').textContent=r.note+(q?' · по запросу: '+R.length:'');
+let h='';
+R.slice(0,50).forEach(s=>{
+const g=s.geo;
+h+='<div style="margin:6px 0">'+esc(s.name)+'<div class="s">'+esc((s.address||'').trim())+(g&&g.latitude?' · <a target="_blank" href="https://www.google.com/maps/search/?api=1&query='+g.latitude+','+g.longitude+'">на карте</a>':'')+'</div></div><hr>';
+});
+if(R.length>50)h+='<div class="s">Показаны первые 50, уточни улицу</div>';
+$('stl').innerHTML=h;
 }
 drawCart();
 function srch(){
