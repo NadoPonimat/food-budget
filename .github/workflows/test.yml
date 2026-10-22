@@ -10,17 +10,17 @@ jobs:
           def g(p):
               r = urllib.request.Request("https://magnum.kz:1337" + p, headers={"User-Agent": "Mozilla/5.0"})
               return json.loads(urllib.request.urlopen(r, timeout=30).read().decode())
-          d = g("/api/products?pagination[pageSize]=100&pagination[page]=1")
-          print("meta:", d.get("meta"))
-          print("count on page:", len(d["data"]))
-          print("first item:", json.dumps(d["data"][0]["attributes"], ensure_ascii=False)[:900])
-          for x in d["data"][:10]:
-              a = x["attributes"]
-              print(a.get("name"), "|", a.get("final_price"), "|", a.get("action_end"))
-          for p in ("/api/cities", "/api/new-product-catalog"):
-              try:
-                  s = json.dumps(g(p), ensure_ascii=False)
-                  print(p, len(s), s[:300])
-              except Exception as e:
-                  print(p, "ERR", e)
+          for c in g("/api/cities")["data"]:
+              print(c["id"], c["attributes"]["name"], c["attributes"]["slug"])
+          try:
+              d = g("/api/products?populate=*&pagination[pageSize]=2")
+              print(json.dumps(d["data"][0], ensure_ascii=False)[:1800])
+          except Exception as e:
+              print("populate ERR", e)
+          names = set()
+          for pg in range(1, 15):
+              r = g("/api/products?pagination[pageSize]=100&pagination[page]=" + str(pg))
+              for i in r["data"]:
+                  names.add(i["attributes"]["name"])
+          print("unique names:", len(names))
           PY
