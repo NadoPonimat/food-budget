@@ -8,6 +8,8 @@ label{display:block;margin:8px 0;font-size:14px}
 input,select{width:100%;box-sizing:border-box;padding:10px;font-size:16px;margin-top:3px}
 button{width:100%;padding:12px;font-size:17px;background:#2e7d32;color:#fff;border:0;border-radius:8px;margin:8px 0}
 button.g{background:#777;font-size:15px;padding:8px}
+button.sm{width:auto;padding:4px 14px;font-size:16px;margin:0 2px;background:#555}
+button.add{width:auto;padding:6px 14px;font-size:14px;margin:6px 0 0}
 .c{background:#fff;border-radius:8px;padding:10px;margin:8px 0}
 .t{font-weight:bold;margin-bottom:4px}
 .s{color:#666;font-size:13px}
@@ -20,10 +22,12 @@ summary{font-weight:bold;font-size:16px;padding:6px 0}
 <script>
 window.onerror=function(m,s,l){document.getElementById('err').textContent='Ошибка: '+m+' (строка '+l+')';};
 </script>
-<h2>Бюджет на еду <span class="s">v40</span></h2>
+<h2>Бюджет на еду <span class="s">v41</span></h2>
 <details class="c"><summary>🔍 Поиск по товарам</summary>
 <input id="q" type="search" placeholder="Например: гречка, молоко 1 л" oninput="srch()">
 <div id="sr"></div></details>
+<details class="c"><summary id="cs">🛒 Корзины</summary>
+<div id="cart"></div></details>
 <label>Бюджет на месяц, ₸<input id="b" type="number" value="50000"></label>
 <label>Месяц<input id="m" type="month"></label>
 <div class="t">Семья</div>
@@ -40,9 +44,10 @@ const NOC={"Хлеб":[.16,250,250],"Колбасы":[.10,100,300],"Сыр":[.10
 const BAD=/тофу|корм|детск|набор|подароч|питомц|шоколад|конфет|киндер|перепел|бургер|наггет|панир|икр|сурими|палочк/i;
 const $=i=>document.getElementById(i);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let F=[{s:'м',a:30,w:75,h:175}],D=null,M=null;
+let F=[{s:'м',a:30,w:75,h:175}],D=null,M=null,LR=[],CART=[];
 $('m').value=new Date().toISOString().slice(0,7);
 try{const S=JSON.parse(localStorage.getItem('fb')||'null');if(S){if(S.F&&S.F.length)F=S.F;$('b').value=S.b||50000;$('pk').value=S.pk||0;$('pp').value=S.pp||0;$('nc').checked=!!S.nc}}catch(e){}
+try{CART=JSON.parse(localStorage.getItem('fbc')||'[]')||[]}catch(e){CART=[]}
 function drawFam(){
 $('fam').innerHTML=F.map((p,i)=>'<div class="c"><div class="t">Человек '+(i+1)+(F.length>1?' · <a href="#" onclick="rm('+i+');return false">удалить</a>':'')+'</div><div class="r">'
 +'<label>Пол<select onchange="F['+i+'].s=this.value"><option value="м"'+(p.s=='м'?' selected':'')+'>муж</option><option value="ж"'+(p.s=='ж'?' selected':'')+'>жен</option></select></label>'
@@ -71,6 +76,40 @@ function allItems(){
 const B=(M?M.items:[]).map(x=>({name:cap(x.name),price:x.price,old:x.old,until:x.until,store:'Magnum',cat:'Акция Magnum',url:''}));
 return D.items.concat(B);
 }
+function saveC(){try{localStorage.setItem('fbc',JSON.stringify(CART))}catch(e){}}
+function addC(i,btn){
+const x=LR[i];if(!x)return;
+const nm=x.name.replace(/^Дисконт:\s*/,'');
+const st=x.store||'Arbuz';
+const f=CART.find(c=>c.store==st&&c.name==nm);
+if(f)f.q++;else CART.push({name:nm,price:x.price,store:st,url:x.url||'',q:1});
+saveC();drawCart();
+if(btn)btn.textContent='✓ добавлено ('+(f?f.q:1)+')';
+}
+function chg(i,d){CART[i].q+=d;if(CART[i].q<=0)CART.splice(i,1);saveC();drawCart()}
+function clr(){if(confirm('Очистить все корзины?')){CART=[];saveC();drawCart()}}
+function drawCart(){
+const n=CART.reduce((a,c)=>a+c.q,0);
+$('cs').textContent='🛒 Корзины'+(n?' ('+n+' шт)':'');
+const o=$('cart');
+if(!CART.length){o.innerHTML='<div class="s">Пусто. Найди товар в поиске и нажми «+ в корзину».</div>';return}
+const st=[...new Set(CART.map(c=>c.store))];
+let all=0,h='';
+st.forEach(s=>{
+let sum=0;
+h+='<div class="c" style="background:#f9f9f9"><div class="t">🛒 '+esc(s)+'</div>';
+CART.forEach((c,i)=>{
+if(c.store!=s)return;
+sum+=c.price*c.q;
+h+='<div style="margin:6px 0">'+esc(c.name)+'<div class="s">'+c.price+' ₸ × '+c.q+' = <b>'+(c.price*c.q)+' ₸</b> <button class="sm" onclick="chg('+i+',-1)">−</button><button class="sm" onclick="chg('+i+',1)">+</button>'+(c.url?' · <a href="'+esc(c.url)+'" target="_blank">открыть</a>':'')+'</div></div><hr>';
+});
+h+='<div class="t">Итого '+esc(s)+': '+sum+' ₸</div></div>';
+all+=sum;
+});
+h+='<div class="c"><div class="t">Всего по всем корзинам: '+all+' ₸</div><button class="g" onclick="clr()">Очистить корзины</button></div>';
+o.innerHTML=h;
+}
+drawCart();
 function srch(){
 const q=$('q').value.trim().toLowerCase();
 const o=$('sr');
@@ -78,17 +117,19 @@ if(q.length<2){o.innerHTML='';return}
 if(!D){o.textContent='Цены ещё грузятся';return}
 const ws=q.split(/\s+/);
 const L=allItems().filter(x=>{const n=x.name.toLowerCase();return ws.every(w=>n.includes(w))}).map(x=>{const g=gr(x.name);const ok=g>=50&&g<=10000&&!/\d\/\d/.test(x.name);return{...x,pk:ok?x.price/g*1000:0}});
-if(!L.length){o.textContent='Ничего не найдено';return}
+if(!L.length){o.textContent='Ничего не найдено';LR=[];return}
 L.sort((a,b)=>(a.pk||1e9)-(b.pk||1e9)||a.price-b.price);
+LR=L.slice(0,30);
 const na=L.filter(x=>x.store=='Magnum').length;
 let h='<div class="s">Найдено: '+L.length+' (Arbuz '+(L.length-na)+', Magnum '+na+')'+(L.length>30?', показаны 30 самых дешёвых':'')+'</div>';
-L.slice(0,30).forEach((x,i)=>{
+LR.forEach((x,i)=>{
 const top=(i==0&&x.pk);
 h+='<div class="c"'+(top?' style="border:2px solid #2e7d32"':'')+'><div>'+esc(x.name.replace(/^Дисконт:\s*/,''))+'</div><div class="s">'
 +(top?'<b style="color:#2e7d32">самый дешёвый</b> · ':'')
 +'<b>'+x.price+' ₸</b>'+(x.old?' <s>'+x.old+'</s>':'')+(x.pk?' ('+Math.round(x.pk)+' ₸/кг)':'')
 +' · <b>'+esc(x.store||'Arbuz')+'</b>'+(x.until?' · акция до '+esc(x.until):' · '+esc(x.cat))
-+(x.url?' · <a href="'+esc(x.url)+'" target="_blank">открыть</a>':'')+'</div></div>';
++(x.url?' · <a href="'+esc(x.url)+'" target="_blank">открыть</a>':'')+'</div>'
++'<button class="add" onclick="addC('+i+',this)">+ в корзину</button></div>';
 });
 o.innerHTML=h;
 }
