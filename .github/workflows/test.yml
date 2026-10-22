@@ -6,21 +6,21 @@ jobs:
     steps:
       - run: |
           python3 - <<'PY'
-          import json, urllib.request
-          def g(p):
-              r = urllib.request.Request("https://magnum.kz:1337" + p, headers={"User-Agent": "Mozilla/5.0"})
-              return json.loads(urllib.request.urlopen(r, timeout=30).read().decode())
-          for c in g("/api/cities")["data"]:
-              print(c["id"], c["attributes"]["name"], c["attributes"]["slug"])
-          try:
-              d = g("/api/products?populate=*&pagination[pageSize]=2")
-              print(json.dumps(d["data"][0], ensure_ascii=False)[:1800])
-          except Exception as e:
-              print("populate ERR", e)
-          names = set()
-          for pg in range(1, 15):
-              r = g("/api/products?pagination[pageSize]=100&pagination[page]=" + str(pg))
-              for i in r["data"]:
-                  names.add(i["attributes"]["name"])
-          print("unique names:", len(names))
+          import json, urllib.request, urllib.error, urllib.parse
+          def t(p, n=700):
+              u = "https://magnum.kz:1337" + urllib.parse.quote(p, safe="/?&=[]$:")
+              r = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
+              try:
+                  s = urllib.request.urlopen(r, timeout=30).read().decode()
+                  print("OK", p, len(s))
+                  print(s[:n].replace("\n", " "))
+              except urllib.error.HTTPError as e:
+                  print("ERR", p, e.code, e.read().decode()[:200])
+              except Exception as e:
+                  print("ERR", p, e)
+              print("-----")
+          t("/api/new-product?pagination[pageSize]=2", 900)
+          t("/api/shops?pagination[pageSize]=2", 600)
+          t("/api/products?filters[shops][address][$containsi]=АЛМАТЫ&pagination[pageSize]=1", 300)
+          t("/api/new-product-catalog", 1200)
           PY
