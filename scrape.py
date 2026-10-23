@@ -25,13 +25,15 @@ CATS = {
 }
 
 
-def get(u):
-    req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
-    t = html.unescape(urllib.request.urlopen(req, timeout=30).read().decode())
-    t = t.replace("\\/", "/")
+def parse(t):
+    t = html.unescape(t).replace("\\/", "/")
+    ms = list(re.finditer(r'"uri":"(/ru/almaty/catalog/item/[^"]+)"', t))
     out = []
-    for m in re.finditer(r'"uri":"(/ru/almaty/catalog/item/[^"]+)"', t):
-        seg = t[m.end():m.end() + 900]
+    for i, m in enumerate(ms):
+        end = m.end() + 1400
+        if i + 1 < len(ms):
+            end = min(end, ms[i + 1].start())
+        seg = t[m.end():end]
         pre = t[max(0, m.start() - 900):m.start()]
         p = re.search(r'"priceActual":(\d+)', seg)
         n = re.findall(r'"name":"([^"]*)"', pre)
@@ -40,31 +42,43 @@ def get(u):
             weighted = re.search(r'"measure":"кг"', seg) and re.search(r'"isWeighted":true', seg)
             if weighted and re.search(r'кг\.?$', name):
                 name = re.sub(r',?\s*кг\.?$', '', name).strip() + ", 1 кг"
-            out.append({"name": name, "price": int(p.group(1)),
-                        "url": "https://arbuz.kz" + m.group(1)})
+            old = re.search(r'"pricePrevious":(\d+)', seg)
+            old = int(old.group(1)) if old else 0
+            item = {"name": name, "price": int(p.group(1)),
+                    "url": "https://arbuz.kz" + m.group(1)}
+            if old > item["price"]:
+                item["old"] = old
+            out.append(item)
     return out
 
 
-items = []
-for cat, slug in CATS.items():
-    seen = set()
-    for pg in range(1, 16):
-        try:
-            r = get(BASE + slug + "?page=" + str(pg))
-        except Exception as e:
-            print("error", cat, pg, e)
-            break
-        new = [x for x in r if x["url"] not in seen]
-        if not new:
-            break
-        for x in new:
-            seen.add(x["url"])
-            x["cat"] = cat
-            x["store"] = "Arbuz"
-            items.append(x)
-        time.sleep(1)
-    print(cat, len(seen))
+def get(u):
+    req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
+    return parse(urllib.request.urlopen(req, timeout=30).read().decode())
 
-data = {"updated": datetime.date.today().isoformat(), "items": items}
-json.dump(data, open("prices.json", "w", encoding="utf-8"), ensure_ascii=False)
-print("total", len(items))
+
+if __name__ == "__main__":
+    items = []
+    for cat, slug in CATS.items():
+        seen = set()
+        for pg in range(1, 16):
+            try:
+                r = get(BASE + slug + "?page=" + str(pg))
+            except Exception as e:
+                print("error", cat, pg, e)
+                break
+            new = [x for x in r if x["url"] not in seen]
+            if not new:
+                break
+            for x in new:
+                seen.add(x["url"])
+                x["cat"] = cat
+                x["store"] = "Arbuz"
+                items.append(x)
+            time.sleep(1)
+        print(cat, len(seen))
+
+    data = {"updated": datetime.date.today().isoformat(), "items": items}
+    json.dump(data, open("prices.json", "w", encoding="utf-8"), ensure_ascii=False)
+    print("total", len(items))
+    print("with old price (promo):", len([x for x in items if x.get("old")]))
